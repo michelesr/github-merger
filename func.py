@@ -5,6 +5,10 @@ import json
 import requests
 import os
 
+DEFAULT_TITLE_INDICATOR = '[am]'
+DEFAULT_TITLE_PREVENTOR = '[dm]'
+DEFAULT_CONTEXT = 'continuous-integration/travis-ci/pr'
+
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
@@ -14,7 +18,21 @@ def response(status_code, status):
 
 
 def is_allowed_repository(repo):
-    return repo.lower() in [r.strip() for r in os.environ.get('ALLOWED_REPOS', '').lower().split(',')]
+    allowed = os.environ.get('ALLOWED_REPOS', '').strip()
+    if '*' == allowed:
+        return True
+    return repo.lower() in [r.strip() for r in allowed.lower().split(',')]
+
+
+def is_allowed_pr_title(title):
+    indicator_wl = os.environ.get('TITLE_INDICATOR', DEFAULT_TITLE_INDICATOR).strip()
+    indicator_bl = os.environ.get('TITLE_PREVENTOR', DEFAULT_TITLE_PREVENTOR).strip()
+    title = title.lower()
+    return ('*' == indicator_wl or indicator_wl.lower() in title) and (indicator_bl == '' or indicator_bl not in title)
+
+
+def required_context():
+    return os.environ.get('REQUIRED_CONTEXT', DEFAULT_CONTEXT)
 
 
 class GitAutoMerger(object):
@@ -27,7 +45,6 @@ class GitAutoMerger(object):
         self.pr_id = None
 
     def auto_merge(self):
-        # TODO: if not is_allowed_repository set, everything
         self._assertion(is_allowed_repository(self.repo), 'is_allowed_repository')
         self.validate_build_status()
         self.get_pull_request()
@@ -71,7 +88,7 @@ class GitAutoMerger(object):
                 self.pr_id = r['number']
 
     def validate_pull_request(self):
-        self._assertion('[am]' in self.pr['title'].lower(), 'pull request title allows auto merge')
+        self._assertion(is_allowed_pr_title(self.pr['title']), 'pull request title allows auto merge')
         self._assertion('open' == self.pr['state'], 'pull request is open')
         self._assertion(self.pr['locked'] is False, 'pull request is not locked')
 
@@ -106,26 +123,32 @@ class GitAutoMerger(object):
 
 def git_review_handler(event, _context):
     logging.debug(event)
+    # Probably Github's welcome.
+    event = event['headers']['X-GitHub-Event']
     j = json.loads(event['body'])
 
-    repo = j['name']
-    sha = j['sha']
-    if not (j['state'] == 'success'):
-        logging.info("Got state %s", j['state'])
-        return response(200, 'Bad state ' + j['state'])
-    if not (j['context'] == 'continuous-integration/travis-ci/pr'):
-        logging.info("Got context %s", j['context'])
-        return response(200, 'Bad context ' + j['context'])
-    if not (len(j['branches']) == 1):
-        logging.info("Got branches %s", j['branches'])
-        return response(200, 'More than one branch')
-
-    branches = j['branches']
-    branch_name = branches[0]['name']
-    logging.info("Starting for %s (%s), branch %s", repo, sha, branch_name)
-    am = GitAutoMerger(os.environ.get('GITHUB_TOKEN', ''), repo, sha, branch_name)
-    try:
-        am.auto_merge()
-        return response(200, 'merged yey')
-    except ValueError, e:
-        return response(200, e.message)
+    if 'ping' == event:
+        return response(200, 'grass tastes bad')
+    elif 'status' == event:
+        repo = j['name']
+        sha = j['sha']
+        if not (j['state'] == 'success'):
+            logging.info("Got state %s", j['state'])
+            return response(200, 'Bad state ' + j['state'])
+        if not (j['context'] == required_context()):
+            logging.info("Got context %s", j['context'])
+            return response(200, 'Bad context ' + j['context'])
+        if not (len(j['branches']) == 1):
+            logging.info("Got branches %s", j['branches'])
+            return response(200, 'More than one branch')
+        branches = j['branches']
+        branch_name = branches[0]['name']
+        logging.info("Starting for %s (%s), branch %s", repo, sha, branch_name)
+        am = GitAutoMerger(os.environ.get('GITHUB_TOKEN', ''), repo, sha, branch_name)
+        try:
+            am.auto_merge()
+            return response(200, 'merged yey')
+        except ValueError as e:
+            return response(200, e.message)
+    else:
+        return response(403, 'unsupported event ' + event)

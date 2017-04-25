@@ -66,6 +66,7 @@ Does this seem familiar?
 
 ## Configuration
 All these should be set as AWS lambda environment variables.
+
 Setting | Required | Meaning
 ------- | -------- | -------
 ALLOWED_REPOS | Yes | A comma-separated list of github repositories the script is allowed to be executed on (use `*` for everything).

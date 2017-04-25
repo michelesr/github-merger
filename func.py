@@ -36,7 +36,7 @@ def required_context():
 
 
 class GitAutoMerger(object):
-    def __init__(self, token, repo, sha, branch):
+    def __init__(self, token, repo=None, sha=None, branch=None):
         self.token = token
         self.repo = repo
         self.sha = sha
@@ -45,11 +45,12 @@ class GitAutoMerger(object):
         self.pr_id = None
 
     def auto_merge(self):
+        self._assertion(None not in [self.repo, self.sha, self.branch] is not None, 'invalid args')
         self._assertion(is_allowed_repository(self.repo), 'is_allowed_repository')
         self.validate_build_status()
-        self.get_pull_request()
+        if self.pr_id is None or self.pr is None:
+            self.get_pull_request()
         self._assertion(self.pr is not None, 'find pull request')
-
         self.validate_pull_request()
         self.validate_reviews()
         self.merge()
@@ -124,12 +125,13 @@ class GitAutoMerger(object):
 def git_review_handler(event, _context):
     logging.debug(event)
     # Probably Github's welcome.
-    event = event['headers']['X-GitHub-Event']
+    event_name = event['headers']['X-GitHub-Event']
     j = json.loads(event['body'])
 
-    if 'ping' == event:
+    am = GitAutoMerger(os.environ.get('GITHUB_TOKEN', ''))
+    if 'ping' == event_name:
         return response(200, 'grass tastes bad')
-    elif 'status' == event:
+    elif 'status' == event_name:
         repo = j['name']
         sha = j['sha']
         if not (j['state'] == 'success'):
@@ -144,11 +146,28 @@ def git_review_handler(event, _context):
         branches = j['branches']
         branch_name = branches[0]['name']
         logging.info("Starting for %s (%s), branch %s", repo, sha, branch_name)
-        am = GitAutoMerger(os.environ.get('GITHUB_TOKEN', ''), repo, sha, branch_name)
-        try:
-            am.auto_merge()
-            return response(200, 'merged yey')
-        except ValueError as e:
-            return response(200, e.message)
+
+        am.repo = repo
+        am.sha = sha
+        am.branch_name = branch_name
+    elif 'pull_request_review' == event_name:
+        if not (j['action'] == 'submitted'):
+            logging.info("Got action %s", j['action'])
+            return response(200, 'Bad action ' + j['action'])
+        if not (j['review']['state'] == 'approved'):
+            logging.info("Got state %s", j['review']['state'])
+            return response(200, 'Bad state ' + j['review']['state'])
+        pr = j['pull_request']
+        am.repo = pr['head']['repo']['full_name']
+        am.sha = pr['head']['sha']
+        am.pr_id = pr['number']
+        am.pr = pr
+        am.branch = pr['head']['ref']
     else:
         return response(403, 'unsupported event ' + event)
+
+    try:
+        am.auto_merge()
+        return response(200, 'merged yey')
+    except ValueError as e:
+        return response(200, e.message)

@@ -4,6 +4,8 @@ import logging
 import json
 import requests
 import os
+import itertools
+import dateutil.parser
 
 DEFAULT_TITLE_INDICATOR = '[am]'
 DEFAULT_TITLE_PREVENTOR = '[dm]'
@@ -97,8 +99,13 @@ class GitAutoMerger(object):
         g = self.get("https://api.github.com/repos/%s/pulls/%s/reviews" % (self.repo, self.pr_id),
                      headers={'Accept': 'application/vnd.github.black-cat-preview+json'})
         logging.debug(g)
+        # A user cannot review himself
+        filtered = list(filter(lambda f: f['user']['login'] != self.pr['user']['login'], g))
         self._assertion(len(g) >= 1, 'pull request has been reviewed')
-        self._assertion(all(map(lambda x: x['state'] == 'APPROVED', g)), 'pull request has been approved')
+        filtered.sort(key=lambda f: dateutil.parser.parse(f['submitted_at']), reverse=True)
+        for user_id, grps in itertools.groupby(filtered, lambda x: x['user']['login']):
+            grps = list(grps)
+            self._assertion(grps[0]['state'] == 'APPROVED', 'pull request has been approved by %s' % (user_id, ))
 
     def merge(self):
         res = self.put("https://api.github.com/repos/%s/pulls/%s/merge" % (self.repo, self.pr_id),
@@ -124,7 +131,6 @@ class GitAutoMerger(object):
 
 def git_review_handler(event, _context):
     logging.debug(event)
-    # Probably Github's welcome.
     event_name = event['headers']['X-GitHub-Event']
     j = json.loads(event['body'])
 

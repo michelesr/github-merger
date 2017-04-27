@@ -72,6 +72,7 @@ Setting | Required | Meaning
 ALLOWED_REPOS | Yes | A comma-separated list of github repositories the script is allowed to be executed on (use `*` for everything).
 GITHUB_TOKEN | Yes | The GitHub API token you obtained in setup 2 of Setup.
 REQUIRED_CONTEXT | No | The source of a required build (default: `continuous-integration/travis-ci/pr`)
+GITHUB_SECRET | No | A secret configured in the GitHub webhook configuration. If configured, incoming requests will be validated using it.
 TITLE_INDICATOR | No | An indicator within the Pull Request's title to *allow* automatic merging. Default: `[AM]` (case insensitive). Use * to allow everything.
 TITLE_PREVENTOR | No | An indicator within the Pull Request's title to *block* automatic merging. Default: `[DM]` (case insensitive). Set to an empty string to allow everything.
 

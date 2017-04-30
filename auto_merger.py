@@ -7,6 +7,7 @@ import requests
 
 DEFAULT_TITLE_INDICATOR = '[am]'
 DEFAULT_TITLE_PREVENTOR = '[dm]'
+IGNORED_REVIEWERS = ['houndci-bot']
 
 
 def is_allowed_repository(repo):
@@ -87,7 +88,8 @@ class GitAutoMerger(object):
                      headers={'Accept': 'application/vnd.github.black-cat-preview+json'})
         logging.debug(g)
         # A user cannot review himself
-        filtered = list(filter(lambda f: f['user']['login'] != self.pr['user']['login'], g))
+        ignored_users = IGNORED_REVIEWERS + [self.pr['user']['login']]
+        filtered = list(filter(lambda f: f['user']['login'] not in ignored_users, g))
         self._assertion(len(g) >= 1, 'pull request has been reviewed')
         filtered.sort(key=lambda f: dateutil.parser.parse(f['submitted_at']), reverse=True)
         for user_id, grps in itertools.groupby(filtered, lambda x: x['user']['login']):

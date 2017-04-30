@@ -48,7 +48,7 @@ def git_review_handler(event, _context):
 
         am.repo = repo
         am.sha = sha
-        am.branch_name = branch_name
+        am.branch = branch_name
     elif 'pull_request_review' == webhook.event_name:
         if not (j['action'] == 'submitted'):
             logging.info("Got action %s", j['action'])

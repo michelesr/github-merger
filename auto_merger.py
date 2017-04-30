@@ -33,7 +33,8 @@ class GitAutoMerger(object):
         self.pr_id = None
 
     def auto_merge(self):
-        self._assertion(None not in [self.repo, self.sha, self.branch] is not None, 'invalid args')
+        logging.debug("self.repo = %s, self.sha = %s, self.branch = %s" % (self.repo, self.sha, self.branch))
+        self._assertion(None not in [self.repo, self.sha, self.branch], 'invalid args')
         self._assertion(is_allowed_repository(self.repo), 'is_allowed_repository')
         self.validate_build_status()
         if self.pr_id is None or self.pr is None:

@@ -2,6 +2,8 @@
 
 import logging
 import os
+import boto3
+import base64
 
 import github_webhook
 from auto_merger import GitAutoMerger
@@ -10,6 +12,14 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 DEFAULT_CONTEXT = 'continuous-integration/travis-ci/pr'
+ENCRYPTED_KEYS = ('GITHUB_SECRET', 'GITHUB_TOKEN')
+
+
+def get_environment_var(var, decryption_required=False):
+    v = os.environ.get(var, '')
+    if decryption_required and var in ENCRYPTED_KEYS and '1' == os.environ.get('ENCRYPTION_ENABLED', '0').strip():
+        return boto3.client('kms').decrypt(CiphertextBlob=base64.b64decode(v))['Plaintext']
+    return v
 
 
 def response(status_code, status):
@@ -22,12 +32,12 @@ def required_context():
 
 def git_review_handler(event, _context):
     logging.debug(event)
-    webhook = github_webhook.Webhook(event['body'], event['headers'], os.environ.get('GITHUB_SECRET', ''))
+    webhook = github_webhook.Webhook(event['body'], event['headers'], get_environment_var('GITHUB_SECRET', True))
     if not webhook.is_valid_request():
         return response(404, 'not found')
     j = webhook.event
 
-    am = GitAutoMerger(os.environ.get('GITHUB_TOKEN', ''))
+    am = GitAutoMerger(get_environment_var('GITHUB_TOKEN', True))
     if 'ping' == webhook.event_name:
         return response(200, 'grass tastes bad')
     elif 'status' == webhook.event_name:
@@ -70,3 +80,4 @@ def git_review_handler(event, _context):
         return response(200, 'merged yey')
     except ValueError as e:
         return response(200, e.message)
+

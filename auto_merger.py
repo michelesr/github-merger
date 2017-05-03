@@ -90,7 +90,7 @@ class GitAutoMerger(object):
         # A user cannot review himself
         ignored_users = IGNORED_REVIEWERS + [self.pr['user']['login']]
         filtered = list(filter(lambda f: f['user']['login'] not in ignored_users, g))
-        self._assertion(len(g) >= 1, 'pull request has been reviewed')
+        self._assertion(len(filtered) >= 1, 'pull request has been reviewed')
         filtered.sort(key=lambda f: dateutil.parser.parse(f['submitted_at']), reverse=True)
         for user_id, grps in itertools.groupby(filtered, lambda x: x['user']['login']):
             grps = list(grps)

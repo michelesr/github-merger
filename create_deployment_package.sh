@@ -3,7 +3,7 @@ export FN=`date +%s`
 export DIRECTORY=dist/$FN
 export PIP=pip
 
-mkdir $DIRECTORY || exit 1
+mkdir -p $DIRECTORY || exit 1
 cp *.py $DIRECTORY || exit 2
 cp requirements.txt $DIRECTORY || exit 3
 pushd $DIRECTORY

@@ -94,8 +94,8 @@ def ask_for_review(event, _context):
     j = webhook.event
 
 
-    if 'pull_request_review' == webhook.event_name:
-        if not (j['action'] == 'submitted'):
+    if 'pull_request' == webhook.event_name:
+        if not (j['action'] == 'opened'):
             logging.info("Got action %s", j['action'])
             return response(200, 'Nothing to do when action ' + j['action'])
         # TODO To be able to override specific reviewers look here for a file with the repo name, else fallback to the default one

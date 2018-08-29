@@ -14,7 +14,7 @@ class Webhook(object):
 
     def is_valid_request(self):
         if self.secret is None:
-            return True
+            return False
 
         signature = self.headers.get('X-Hub-Signature')
         if signature is None:

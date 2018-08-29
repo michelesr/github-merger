@@ -4,6 +4,9 @@ import logging
 import os
 import boto3
 import base64
+import json
+import random
+import requests
 
 import github_webhook
 from auto_merger import GitAutoMerger
@@ -11,13 +14,15 @@ from auto_merger import GitAutoMerger
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
+s3 = boto3.resource('s3')
+
 DEFAULT_CONTEXT = 'continuous-integration/travis-ci/pr'
 ENCRYPTED_KEYS = ('GITHUB_SECRET', 'GITHUB_TOKEN')
 
 
-def get_environment_var(var, decryption_required=False):
+def get_environment_var(var):
     v = os.environ.get(var, '')
-    if decryption_required and var in ENCRYPTED_KEYS and '1' == os.environ.get('ENCRYPTION_ENABLED', '0').strip():
+    if var in ENCRYPTED_KEYS and '1' == os.environ.get('ENCRYPTION_ENABLED', '0').strip():
         return boto3.client('kms').decrypt(CiphertextBlob=base64.b64decode(v))['Plaintext']
     return v
 
@@ -32,12 +37,12 @@ def required_context():
 
 def git_review_handler(event, _context):
     logging.debug(event)
-    webhook = github_webhook.Webhook(event['body'], event['headers'], get_environment_var('GITHUB_SECRET', True))
+    webhook = github_webhook.Webhook(event['body'], event['headers'], get_environment_var('GITHUB_SECRET'))
     if not webhook.is_valid_request():
-        return response(404, 'not found')
+        return response(400, 'bad request')
     j = webhook.event
 
-    am = GitAutoMerger(get_environment_var('GITHUB_TOKEN', True))
+    am = GitAutoMerger(get_environment_var('GITHUB_TOKEN'))
     if 'ping' == webhook.event_name:
         return response(200, 'grass tastes bad')
     elif 'status' == webhook.event_name:
@@ -81,3 +86,23 @@ def git_review_handler(event, _context):
     except ValueError as e:
         return response(200, e.message)
 
+def ask_for_review(event, _context):
+    logging.debug(event)
+    webhook = github_webhook.Webhook(event['body'], event['headers'], get_environment_var('GITHUB_SECRET'))
+    if not webhook.is_valid_request():
+        return response(400, 'bad request')
+    j = webhook.event
+
+
+    if 'pull_request_review' == webhook.event_name:
+        if not (j['action'] == 'submitted'):
+            logging.info("Got action %s", j['action'])
+            return response(200, 'Nothing to do when action ' + j['action'])
+        # TODO To be able to override specific reviewers look here for a file with the repo name, else fallback to the default one
+        file = s3.Object(get_environment_var('PULL_REQUEST_REVIEWERS_BUCKET'), "default.json").get()['Body'].read()
+        reviewers = json.load(file)
+        victims = random.sample(reviewers, 1)
+        for victim in victims:
+            slack_url = victim["slack_webhook"]
+            slack_data = { "text": "Please review my PR: " + j['pull_request']['title'] }
+            requests.post(slack_url, data=json.dumps(slack_data), headers={ 'Content-Type': 'application/json' })

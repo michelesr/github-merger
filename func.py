@@ -100,7 +100,7 @@ def ask_for_review(event, _context):
             return response(200, 'Nothing to do when action ' + j['action'])
         # TODO To be able to override specific reviewers look here for a file with the repo name, else fallback to the default one
         file = s3.Object(get_environment_var('PULL_REQUEST_REVIEWERS_BUCKET'), "default.json").get()['Body'].read()
-        reviewers = json.load(file)
+        reviewers = json.loads(file)
         victims = random.sample(reviewers, 1)
         for victim in victims:
             slack_url = victim["slack_webhook"]

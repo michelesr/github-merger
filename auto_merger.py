@@ -65,9 +65,10 @@ class GitAutoMerger(object):
         return h
 
     def validate_build_status(self):
-        res = self.get("https://api.github.com/repos/" + self.repo + "/commits/" + self.sha + "/status")
+        res = self.get("https://api.github.com/repos/" + self.repo + "/commits/" + self.sha + "/check-suites")
         logging.debug(res)
-        self._assertion(res['state'] == 'success', 'build status is success', res)
+        self._assertion(res['total_count'] > 0, 'found check suits', res)
+        self._assertion(all(suite['conclusion'] == 'success' for suite in res['check_suites']), 'check suites passed', res)
 
     def get_pull_request(self):
         res = self.get("https://api.github.com/repos/" + self.repo + "/pulls",

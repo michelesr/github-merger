@@ -58,9 +58,10 @@ Does this seem familiar?
     * Add a Webhook:
         * Payload URL is the Invoke URL you just copied.
         * Content Type: application/json
-        * Events: `status`.
-            * This will allow our Lambda function to merge when the build is complete (if it was reviewed before).
-            * If you would like it to also work when review is performed after build is complete, select `Pull request review` too.
+        * Events:
+            * `Check suites` - This will allow our Lambda function to merge when the build is complete (if it was reviewed before).
+            * `Pull request reviews` - The Lambda function will merge when a review completed after the build is completed.
+            * `Statuses` - This will use old statuses API for merge triggering - use for API before v3, when check suites was introduced.
 6. Go back to writing code.
 
 

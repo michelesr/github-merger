@@ -63,10 +63,10 @@ def git_review_handler(event, _context):
         repo = j['repository']['full_name']
         check_suite = j['check_suite']
         sha = check_suite['head_sha']
-        if not (j['action'] == 'completed'):
+        if j['action'] != 'completed':
             logging.info("Got state %s", j['action'])
             return response(200, 'Not completed. status: ' + j['action'])
-        if not (check_suite['conclusion'] == 'success'):
+        if check_suite['conclusion'] != 'success':
             logging.info("Got conclusion %s", check_suite['conclusion'])
             return response(200, 'Bad conclusion ' + check_suite['conclusion'])
         branch_name = check_suite['head_branch']

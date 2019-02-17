@@ -61,6 +61,7 @@ class GitAutoMerger(object):
     def headers(self, h=None):
         if h is None:
             h = {}
+        h['Accept'] = 'application/vnd.github.antiope-preview+json'
         h['Authorization'] = 'token ' + self.token
         return h
 

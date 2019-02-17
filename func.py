@@ -59,6 +59,22 @@ def git_review_handler(event, _context):
         am.repo = repo
         am.sha = sha
         am.branch = branch_name
+    elif 'check_suite' == webhook.event_name:
+        repo = j['repository']['full_name']
+        check_suite = j['check_suite']
+        sha = check_suite['head_sha']
+        if j['action'] != 'completed':
+            logging.info("Got state %s", j['action'])
+            return response(200, 'Not completed. status: ' + j['action'])
+        if check_suite['conclusion'] != 'success':
+            logging.info("Got conclusion %s", check_suite['conclusion'])
+            return response(200, 'Bad conclusion ' + check_suite['conclusion'])
+        branch_name = check_suite['head_branch']
+        logging.info("Starting for %s (%s), branch %s", repo, sha, branch_name)
+
+        am.repo = repo
+        am.sha = sha
+        am.branch = branch_name
     elif 'pull_request_review' == webhook.event_name:
         if not (j['action'] == 'submitted'):
             logging.info("Got action %s", j['action'])

@@ -32,7 +32,7 @@ def required_context():
 
 def git_review_handler(event, _context):
     logging.debug(event)
-    webhook = github_webhook.Webhook(event['body'], event['headers'], get_environment_var('GITHUB_SECRET', True))
+    webhook = github_webhook.Webhook(event['body']['payload'], event['headers'], get_environment_var('GITHUB_SECRET', True))
     if not webhook.is_valid_request():
         return response(404, 'not found')
     j = webhook.event

@@ -1,8 +1,9 @@
 # GitHub merger
 A serverless automatic GitHub pull request merger.
 
-This script will utilize GitHub webhooks, AWS lambda and GitHub API to automatically merge approved and tested pull requests.
+This script will utilize GitHub webhooks, AWS lambda and GitHub API to automatically merge pull requests that can be merged according to branch protection settings.
 Setting this up should not take more than 10 minutes, given you have the required access to Github and AWS.
+Make sure your branches are protected and define requirements such as approved reviews and/or check status pass, otherwise PRs will be merged too early.
 
 ## The pain
 Does this seem familiar?
@@ -52,9 +53,13 @@ Does this seem familiar?
             * Use Lambda Proxy integration.
         * Deploy the changes: Actions -> Deploy API.
     * Get the URL by going to `"Stages" -> prod -> POST` and copying the `Invoke URL`.
-5. GitHub Webhook
+5. Branch protection
+    * Under the repository settings, go to `Settings -> Branches`
+    * Add branch protection rules to the desired target branches (such as `master`)
+    * For example you might want to have `Require pull request reviews before merging` and `Require status checks to pass before merging`
+6. GitHub Webhook
     * This can be done on a per-repository or per-account basis. Your call.
-    * Under the account or repository settings, go to Settings -> Webhooks.
+    * Under the account or repository settings, go to `Settings -> Webhooks`.
     * Add a Webhook:
         * Payload URL is the Invoke URL you just copied.
         * Content Type: application/json
@@ -72,7 +77,6 @@ Setting | Required | Meaning
 ------- | -------- | -------
 ALLOWED_REPOS | Yes | A comma-separated list of github repositories the script is allowed to be executed on (use `*` for everything).
 GITHUB_TOKEN | Yes | The GitHub API token you obtained in setup 2 of Setup.
-REQUIRED_CONTEXT | No | The source of a required build (default: `continuous-integration/travis-ci/pr`)
 GITHUB_SECRET | No | A secret configured in the GitHub webhook configuration. If configured, incoming requests will be validated using it.
 TITLE_INDICATOR | No | An indicator within the Pull Request's title to *allow* automatic merging. Default: `[AM]` (case insensitive). Use * to allow everything.
 TITLE_PREVENTOR | No | An indicator within the Pull Request's title to *block* automatic merging. Default: `[DM]` (case insensitive). Set to an empty string to allow everything.

@@ -13,7 +13,7 @@ class Webhook(object):
         self.event_name = headers.get('X-GitHub-Event')
 
     def is_valid_request(self):
-        if self.secret is None:
+        if not self.secret:
             return True
 
         signature = self.headers.get('X-Hub-Signature')

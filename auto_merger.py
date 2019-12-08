@@ -37,12 +37,9 @@ class GitAutoMerger(object):
         logging.debug("self.repo = %s, self.sha = %s, self.branch = %s" % (self.repo, self.sha, self.branch))
         self._assertion(None not in [self.repo, self.sha, self.branch], 'invalid args')
         self._assertion(is_allowed_repository(self.repo), 'is_allowed_repository')
-        self.validate_build_status()
-        if self.pr_id is None or self.pr is None:
-            self.get_pull_request()
+        self.get_pull_request()
         self._assertion(self.pr is not None, 'find pull request')
         self.validate_pull_request()
-        self.validate_reviews()
         self.merge()
         self.remove_branch()
 
@@ -65,38 +62,27 @@ class GitAutoMerger(object):
         h['Authorization'] = 'token ' + self.token
         return h
 
-    def validate_build_status(self):
-        res = self.get("https://api.github.com/repos/" + self.repo + "/commits/" + self.sha + "/check-suites")
-        logging.debug(res)
-        self._assertion(res['total_count'] > 0, 'found check suits', res)
-        self._assertion(all(suite['conclusion'] == 'success' for suite in res['check_suites']), 'check suites passed', res)
-
-    def get_pull_request(self):
+    def get_pull_request_id(self):
         res = self.get("https://api.github.com/repos/" + self.repo + "/pulls",
                        params={"head": ":".join([self.repo.split('/')[0], self.branch])})
         logging.debug(res)
         for r in res:
             if 'statuses_url' in r and self.sha in r['statuses_url']:
-                self.pr = r
                 self.pr_id = r['number']
+
+
+    def get_pull_request(self):
+        if self.pr_id is None:
+            self.get_pull_request_id()
+        self.pr = self.get("https://api.github.com/repos/%s/pulls/%s" % (self.repo, self.pr_id))
+
 
     def validate_pull_request(self):
         self._assertion(is_allowed_pr_title(self.pr['title']), 'pull request title allows auto merge')
         self._assertion('open' == self.pr['state'], 'pull request is open')
         self._assertion(self.pr['locked'] is False, 'pull request is not locked')
-
-    def validate_reviews(self):
-        g = self.get("https://api.github.com/repos/%s/pulls/%s/reviews" % (self.repo, self.pr_id),
-                     headers={'Accept': 'application/vnd.github.black-cat-preview+json'})
-        logging.debug(g)
-        # A user cannot review himself
-        ignored_users = IGNORED_REVIEWERS + [self.pr['user']['login']]
-        filtered = list(filter(lambda f: f['user']['login'] not in ignored_users, g))
-        self._assertion(len(filtered) >= 1, 'pull request has been reviewed')
-        filtered.sort(key=lambda f: dateutil.parser.parse(f['submitted_at']), reverse=True)
-        for user_id, grps in itertools.groupby(filtered, lambda x: x['user']['login']):
-            grps = list(grps)
-            self._assertion(grps[0]['state'] == 'APPROVED', 'pull request has been approved by %s' % (user_id, ))
+        self._assertion(self.pr['mergeable'] is True, 'pull request is mergeable')
+        self._assertion(self.pr['mergeable_state'] == 'clean', 'merge button is green')
 
     def merge(self):
         res = self.put("https://api.github.com/repos/%s/pulls/%s/merge" % (self.repo, self.pr_id),
